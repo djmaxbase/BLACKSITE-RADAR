@@ -320,8 +320,17 @@ local function radarPage()
  local scopeRange=cfg.range
  if cfg.autoZoom~=false then
   local farthest=0
-  for _,t in ipairs(tracks) do if isPlayer(t) then local dx,_,dz=xyz(t);farthest=math.max(farthest,math.sqrt(dx*dx+dz*dz)) end end
-  if farthest>0 then scopeRange=math.max(32,math.min(8192,math.ceil(farthest*1.35/16)*16)) end
+  for _,t in ipairs(filtered()) do
+   if isPlayer(t) then
+    local dx,_,dz=xyz(t)
+    farthest=math.max(farthest,math.sqrt(dx*dx+dz*dz))
+   end
+  end
+  if farthest>0 then
+   scopeRange=math.max(48,math.min(8192,math.ceil(farthest*1.15/16)*16))
+  else
+   scopeRange=math.min(scopeRange,256)
+  end
  end
  local hex='0123456789abcdef'
  local function digit(col)
@@ -353,7 +362,7 @@ local function radarPage()
    end
   end
  end
- plot(cx,cy,'+',C.white)
+ plot(cx,cy,'B',C.white)
  plot(cx,cy-ry,'N',C.cyan);plot(cx,cy+ry,'S',C.cyan)
  plot(cx+rx,cy,'E',C.cyan);plot(cx-rx,cy,'W',C.cyan)
  if cfg.filter=='ALL' or cfg.filter=='PLAYERS' then
@@ -367,6 +376,11 @@ local function radarPage()
   end
  end
  local visible=filtered();local plotted=0;local overlap={};local targetButtons={}
+ -- Draw cached contacts first, live contacts last.
+ table.sort(visible,function(a,b)
+  if (a._lastSeen~=nil)~=(b._lastSeen~=nil) then return a._lastSeen~=nil end
+  return distance(a)>distance(b)
+ end)
  for _,t in ipairs(visible) do
   local dx,_,dz=xyz(t)
   if math.sqrt(dx*dx+dz*dz)<=scopeRange then
@@ -375,7 +389,7 @@ local function radarPage()
    if px>=1 and px<=avail and py>=top and py<=bottom then
     local key=px..','..py;overlap[key]=(overlap[key] or 0)+1
     local mark=t._lastSeen and '?' or (ident(t)==selected and 'X' or (isPlayer(t) and 'P' or cat(t)=='HOSTILE' and '!' or 'o'))
-    if overlap[key]>1 then mark=tostring(math.min(9,overlap[key])) end
+    if overlap[key]>1 and not isPlayer(t) then mark=tostring(math.min(9,overlap[key])) end
     plot(px,py,mark,t._lastSeen and C.orange or (ident(t)==selected and C.yellow or clr(t)))
     plotted=plotted+1
     local id=ident(t)
@@ -395,7 +409,7 @@ local function radarPage()
   monitor.blit(table.concat(chars),table.concat(fgs),table.concat(bgs))
  end
  for _,btn in pairs(targetButtons) do buttons[#buttons+1]=btn end
- draw(2,7,'[ BLACKSITE / ACTIVE SCOPE ] P=LIVE ?=LOST',C.lime)
+ draw(2,7,'[ BASE=B / LIVE=P / LAST SEEN=? ]',C.lime)
  local function autoFit()
   local a=filtered();if #a==0 then notify('No tracks to fit');return end
   -- Fit changes zoom only, never the base location.
