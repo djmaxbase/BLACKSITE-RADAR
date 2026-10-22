@@ -2,7 +2,7 @@
 -- Real tracks only. Touch to select; CC monitors do not support mouse hover.
 local C=colors
 local cfgFile='blacksite_radar_config'
-local cfg={density=1,theme='TACTICAL',range=256,origin={x=1733,y=57,z=-1234},filter='ALL',scale=0.5,refresh=0.7,autoCenter=false,names={},security={enabled=true,radius=128,side='none',cooldown=20,watchOnly=false},trusted={}}
+local cfg={density=1,theme='TACTICAL',range=256,origin={x=1733,y=57,z=-1234},filter='ALL',scale=0.5,refresh=0.7,autoCenter=false,autoZoom=true,names={},security={enabled=true,radius=128,side='none',cooldown=20,watchOnly=false},trusted={}}
 if fs.exists(cfgFile) then local f=fs.open(cfgFile,'r');if f then local ok,v=pcall(textutils.unserialize,f.readAll());f.close();if ok and type(v)=='table' then for k,x in pairs(v) do cfg[k]=x end end end end
 local function save() local f=fs.open(cfgFile,'w');if f then f.write(textutils.serialize(cfg));f.close() end end
 local monitor,radar,radarName,monitorName
@@ -206,7 +206,7 @@ local function button(x,y,label,fn,fg,bg)
 end
 local function rule(y) fill(1,y,w,'-',C.gray) end
 local function changeDensity(delta) cfg.density=math.max(.5,math.min(2,math.floor((cfg.density+delta)*20+.5)/20));save();notify('UI density '..string.format('%.2f',cfg.density)) end
-local function changeZoom(factor) cfg.range=math.max(16,math.min(8192,math.floor(cfg.range*factor+0.5)));save() end
+local function changeZoom(factor) cfg.range=math.max(16,math.min(8192,math.floor(cfg.range*factor+0.5)));cfg.autoZoom=false;save() end
 local function changeScale(delta) local value=math.floor((cfg.scale+delta)*2+0.5)/2;value=math.max(.5,math.min(5,value));local ok=pcall(monitor.setTextScale,value);if ok then cfg.scale=value;save();notify('Monitor scale '..value) else notify('Scale not supported') end end
 local function matches(t)
  local f=cfg.filter
@@ -259,7 +259,7 @@ local function chosen() for _,t in ipairs(filtered()) do if ident(t)==selected t
 local function header()
  buttons={};w,h=monitor.getSize();monitor.setBackgroundColor(C.black);monitor.clear()
  fill(1,1,w,' ',C.white,C.blue)
- draw(2,1,'BLACKSITE / RADAR ULTRA 6.1',C.white,C.blue)
+ draw(2,1,'BLACKSITE / RADAR ULTRA 6.2',C.white,C.blue)
  draw(math.max(2,w-19),1,err=='' and 'LIVE DATA' or 'LINK OFFLINE',err=='' and C.lime or C.red,C.blue)
  local nav={'RADAR','CONTACTS','DETAILS','SECURITY','INTEL','SYSTEM'}
  local x=2
@@ -317,6 +317,12 @@ local function radarPage()
   draw(2,8,'Display too small: add monitor blocks or use scale 0.5',C.orange)
   return
  end
+ local scopeRange=cfg.range
+ if cfg.autoZoom~=false then
+  local farthest=0
+  for _,t in ipairs(tracks) do if isPlayer(t) then local dx,_,dz=xyz(t);farthest=math.max(farthest,math.sqrt(dx*dx+dz*dz)) end end
+  if farthest>0 then scopeRange=math.max(64,math.min(cfg.range,math.ceil(farthest*1.35/16)*16)) end
+ end
  local hex='0123456789abcdef'
  local function digit(col)
   for i=0,15 do if 2^i==col then return hex:sub(i+1,i+1) end end
@@ -354,8 +360,8 @@ local function radarPage()
   for _,path in pairs(trails) do
    for _,pt in ipairs(path) do
     local dx=pt.x-n(cfg.origin.x);local dz=pt.z-n(cfg.origin.z)
-    if math.sqrt(dx*dx+dz*dz)<=cfg.range then
-     plot(cx+dx/cfg.range*rx,cy+dz/cfg.range*ry,'.',C.blue)
+    if math.sqrt(dx*dx+dz*dz)<=scopeRange then
+     plot(cx+dx/scopeRange*rx,cy+dz/scopeRange*ry,'.',C.blue)
     end
    end
   end
@@ -363,9 +369,9 @@ local function radarPage()
  local visible=filtered();local plotted=0;local overlap={};local targetButtons={}
  for _,t in ipairs(visible) do
   local dx,_,dz=xyz(t)
-  if math.sqrt(dx*dx+dz*dz)<=cfg.range then
-   local px=math.floor(cx+dx/cfg.range*rx+.5)
-   local py=math.floor(cy+dz/cfg.range*ry+.5)
+  if math.sqrt(dx*dx+dz*dz)<=scopeRange then
+   local px=math.floor(cx+dx/scopeRange*rx+.5)
+   local py=math.floor(cy+dz/scopeRange*ry+.5)
    if px>=1 and px<=avail and py>=top and py<=bottom then
     local key=px..','..py;overlap[key]=(overlap[key] or 0)+1
     local mark=t._lastSeen and '?' or (ident(t)==selected and 'X' or (isPlayer(t) and 'P' or cat(t)=='HOSTILE' and '!' or 'o'))
@@ -389,18 +395,18 @@ local function radarPage()
   monitor.blit(table.concat(chars),table.concat(fgs),table.concat(bgs))
  end
  for _,btn in pairs(targetButtons) do buttons[#buttons+1]=btn end
- draw(2,7,'[ BLACKSITE / ACTIVE SCOPE ]',C.lime)
+ draw(2,7,'[ BLACKSITE / ACTIVE SCOPE ] P=LIVE ?=LOST',C.lime)
  local function autoFit()
   local a=filtered();if #a==0 then notify('No tracks to fit');return end
   -- Fit changes zoom only, never the base location.
   cfg.autoCenter=false
   local maxd=0
   for _,t in ipairs(a) do local x,_,z=xyz(t);maxd=math.max(maxd,math.sqrt(x*x+z*z)) end
-  cfg.range=math.max(16,math.min(8192,math.ceil(maxd*1.15)))
+  cfg.range=math.max(16,math.min(8192,math.ceil(maxd*1.15)));cfg.autoZoom=false
   save();notify('Fit '..#a..' contacts')
  end
  if compact then
-  draw(2,h-3,cut('P '..plotted..'/'..#visible..' | '..cfg.range..'m | '..cfg.filter,w-3),C.cyan)
+  draw(2,h-3,cut('P '..plotted..'/'..#visible..' | '..scopeRange..'m | '..cfg.filter,w-3),C.cyan)
   button(math.max(2,w-19),7,'-',function()changeZoom(.8) end)
   button(math.max(2,w-14),7,'+',function()changeZoom(1.25) end)
   button(math.max(2,w-9),7,'FIT',autoFit)
@@ -408,11 +414,12 @@ local function radarPage()
   local sx=avail+3
   draw(sx,8,'TACTICAL OVERVIEW',C.cyan)
   draw(sx,10,'Visible: '..plotted..' / '..#visible,C.white)
-  draw(sx,11,'Range: '..cfg.range..' blocks',C.white)
+  draw(sx,11,'Range: '..scopeRange..' blocks',C.white)
   draw(sx,12,'UI density: '..string.format('%.2f',cfg.density),C.lightGray)
   button(sx,13,'-5%',function()changeZoom(1/1.05) end)
   button(sx+7,13,'+5%',function()changeZoom(1.05) end)
   button(sx,15,'AUTO FIT',autoFit,C.black,C.lime)
+  button(sx+12,15,cfg.autoZoom~=false and 'AUTO Z ON' or 'AUTO Z OFF',function()cfg.autoZoom=not (cfg.autoZoom~=false);save() end)
   draw(sx,17,'FILTER: '..cfg.filter,C.yellow)
   button(sx,19,'ALL',function()cfg.filter='ALL';save() end)
   button(sx+6,19,'PLAYERS',function()cfg.filter='PLAYERS';save() end)
