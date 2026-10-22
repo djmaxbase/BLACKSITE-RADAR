@@ -40,12 +40,12 @@ local function getSnapshot()
   if type(t)=="table" and type(t.position)=="table" and
     (t.category=="PLAYER" or t.entityType=="entity.minecraft.player" or t.entityType=="minecraft:player") then
    local id=tostring(t.id or t.uuid or "")
-   local rec=db[id] or {}
+   local rec=db[id] or db[id:gsub('-',''):lower()] or {}
    local name=t.playerName or t.username or t.name or (cfg.names or {})[id] or rec.name or ("Player "..id:sub(1,8))
    local x,y,z=tonumber(t.position.x) or 0,tonumber(t.position.y) or 0,tonumber(t.position.z) or 0
    local dx,dz=x-(tonumber(base.x) or 0),z-(tonumber(base.z) or 0)
    local dist=math.floor(math.sqrt(dx*dx+dz*dz)+0.5)
-   local status=rec.status or "NEUTRAL"
+   local status=tostring(rec.status or "NEUTRAL"):upper()
    local alert=not not sec.enabled and dist<=radius and status~="FRIENDLY" and (not sec.watchOnly or status=="WATCHLIST")
    players[#players+1]={id=id,name=tostring(name),x=math.floor(x),y=math.floor(y),z=math.floor(z),dist=dist,status=status,alert=alert}
   end
