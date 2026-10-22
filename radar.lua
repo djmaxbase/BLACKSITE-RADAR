@@ -1,4 +1,4 @@
--- BLACKSITE RADAR ULTRA 6.0 | CC:Tweaked + Create: Radars
+-- BLACKSITE RADAR ULTRA 6.3 | CC:Tweaked + Create: Radars
 -- Real tracks only. Touch to select; CC monitors do not support mouse hover.
 local C=colors
 local cfgFile='blacksite_radar_config'
@@ -259,7 +259,7 @@ local function chosen() for _,t in ipairs(filtered()) do if ident(t)==selected t
 local function header()
  buttons={};w,h=monitor.getSize();monitor.setBackgroundColor(C.black);monitor.clear()
  fill(1,1,w,' ',C.white,C.blue)
- draw(2,1,'BLACKSITE / RADAR ULTRA 6.2',C.white,C.blue)
+ draw(2,1,'BLACKSITE / RADAR ULTRA 6.3',C.white,C.blue)
  draw(math.max(2,w-19),1,err=='' and 'LIVE DATA' or 'LINK OFFLINE',err=='' and C.lime or C.red,C.blue)
  local nav={'RADAR','CONTACTS','DETAILS','SECURITY','INTEL','SYSTEM'}
  local x=2
@@ -321,7 +321,7 @@ local function radarPage()
  if cfg.autoZoom~=false then
   local farthest=0
   for _,t in ipairs(tracks) do if isPlayer(t) then local dx,_,dz=xyz(t);farthest=math.max(farthest,math.sqrt(dx*dx+dz*dz)) end end
-  if farthest>0 then scopeRange=math.max(64,math.min(cfg.range,math.ceil(farthest*1.35/16)*16)) end
+  if farthest>0 then scopeRange=math.max(32,math.min(8192,math.ceil(farthest*1.35/16)*16)) end
  end
  local hex='0123456789abcdef'
  local function digit(col)
@@ -419,6 +419,11 @@ local function radarPage()
   button(sx,13,'-5%',function()changeZoom(1/1.05) end)
   button(sx+7,13,'+5%',function()changeZoom(1.05) end)
   button(sx,15,'AUTO FIT',autoFit,C.black,C.lime)
+  button(sx,23,'FIT PLAYERS',function()
+   local far=0;local count=0
+   for _,t in ipairs(tracks) do if isPlayer(t) then local dx,_,dz=xyz(t);far=math.max(far,math.sqrt(dx*dx+dz*dz));count=count+1 end end
+   if count==0 then notify('No live players') else cfg.range=math.max(32,math.min(8192,math.ceil(far*1.35/16)*16));cfg.autoZoom=true;save();notify('Player view '..cfg.range..'m') end
+  end)
   button(sx+12,15,cfg.autoZoom~=false and 'AUTO Z ON' or 'AUTO Z OFF',function()cfg.autoZoom=not (cfg.autoZoom~=false);save() end)
   draw(sx,17,'FILTER: '..cfg.filter,C.yellow)
   button(sx,19,'ALL',function()cfg.filter='ALL';save() end)
