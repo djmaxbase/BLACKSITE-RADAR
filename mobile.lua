@@ -10,6 +10,7 @@ end
 if not modem then error("Wireless modem required") end
 rednet.open(modem)
 local page=1
+local scroll=0
 local server=nil
 local data=nil
 local function line(y,s,color)
@@ -72,7 +73,7 @@ while true do
  elseif e=="rednet_message" and c==protocol and type(b)=="table" and b.type=="snapshot" then
   if not server or server==a then server=a;data=b;last=os.clock() end
  elseif e=="key" then
-  if a==keys.one then page=1 elseif a==keys.two then page=2 elseif a==keys.three then page=3 end
+  if a==keys.one then page=1;scroll=0 elseif a==keys.two then page=2;scroll=0 elseif a==keys.three then page=3;scroll=0 elseif a==keys.down then scroll=scroll+1 elseif a==keys.up then scroll=math.max(0,scroll-1) end
  elseif e=="mouse_click" then
   local w,h=term.getSize()
   if c>=h-1 then
