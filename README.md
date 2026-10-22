@@ -1,39 +1,43 @@
-# BLACKSITE RADAR 6.0
+# BLACKSITE RADAR — Complete Edition
 
-A CC: Tweaked tactical dashboard for the Create: Radars peripheral in Minecraft.
+CC:Tweaked + Create: Radars tactical radar dashboard and wireless pocket companion.
 
-## Installation
+## Files
+- `radar.lua`: Main large-monitor radar (6.0).
+- `mobile_server.lua`: Read-only wireless Rednet bridge on base computer.
+- `mobile.lua`: Wireless Advanced Pocket Computer client.
+- `blacksite_start.lua`: Starts radar and mobile bridge together.
 
-1. Upload the latest Lua program as `radar.lua` to the root of this repository.
-2. On your CC: Tweaked computer, run:
+## Base computer setup
+
+Required: wired access to Create: Radars monitor peripheral, a large advanced monitor, and a **wireless modem**.
+
+Download the latest files on the base computer:
 
 ```sh
-wget https://raw.githubusercontent.com/djmaxbase/BLACKSITE-RADAR/main/radar.lua radar6
-radar6
+wget https://raw.githubusercontent.com/djmaxbase/BLACKSITE-RADAR/main/radar.lua radar.lua
+wget https://raw.githubusercontent.com/djmaxbase/BLACKSITE-RADAR/main/mobile_server.lua mobile_server.lua
+wget https://raw.githubusercontent.com/djmaxbase/BLACKSITE-RADAR/main/blacksite_start.lua blacksite_start.lua
+blacksite_start.lua
 ```
 
-## Updating
+## Pocket computer setup
+
+Required: Advanced Pocket Computer with wireless modem.
 
 ```sh
-delete radar6
-wget https://raw.githubusercontent.com/djmaxbase/BLACKSITE-RADAR/main/radar.lua radar6
-radar6
+wget https://raw.githubusercontent.com/djmaxbase/BLACKSITE-RADAR/main/mobile.lua mobile.lua
+mobile.lua
 ```
 
-## Requirements
+The pocket client discovers the base via Rednet, refreshes automatically, and offers radar, security and player intelligence views. Use number keys 1–3 to switch pages.
 
-- CC: Tweaked advanced computer and monitor
-- Create: Radars monitor exposed as a peripheral (for example `create_radar:monitor_0`)
-- HTTP enabled for Mojang profile lookups and GitHub downloads
+## Troubleshooting
+- `Not Found`: Check exact file names and branch `main`.
+- `No wireless modem`: Run `lua` then `for _,s in ipairs(peripheral.getNames()) do if peripheral.hasType(s,"modem") then print(s,peripheral.wrap(s).isWireless()) end end`.
+- No contacts: Check that `create_radar:monitor_0` is connected and returns player tracks with `getTracks()`.
+- No mobile link: Both computers must be on, in radio range, and have working wireless modems.
+- A username is shown only if available from radar data or stored local name mappings.
 
-## Features
-
-- Live entity and player radar tracks
-- Minecraft username lookup from UUID
-- Base security alerts and optional redstone output
-- Player intelligence database and tracking history
-- Adaptive dashboard and radar graphics
-
-> Monitor text scale in CC: Tweaked only supports 0.5 increments. Layout density is separate from font scaling.
-
-Test alarms before connecting automated defenses.
+## Notes
+Security and intelligence data come from local radar configuration. Do not assume that a remote player can be detected outside the radar's actual tracking range. This package has not been tested on every modpack/server.
