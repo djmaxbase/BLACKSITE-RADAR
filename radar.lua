@@ -251,20 +251,15 @@ local function fetch()
  for id,e in pairs(playerCache) do if os.clock()-e.seen>cacheSeconds then playerCache[id]=nil end end
  saveIntel(false)
  if alarmUntil>0 and os.clock()>alarmUntil then alarmUntil=0;alarmOutput(false) end
- if cfg.autoCenter and #out>0 then
-  local xs,zs={},{}
-  for _,t in ipairs(out) do xs[#xs+1]=n(t.position.x);zs[#zs+1]=n(t.position.z) end
-  table.sort(xs);table.sort(zs)
-  local mid=math.ceil(#xs/2)
-  cfg.origin={x=xs[mid],y=0,z=zs[mid]}
- end
+ -- Never move the base origin during polling: it must remain a stable world coordinate.
+ -- Old autoCenter settings are ignored to avoid moving targets on screen.
  -- Preserve selection across temporary track dropouts.
 end
 local function chosen() for _,t in ipairs(filtered()) do if ident(t)==selected then return t end end end
 local function header()
  buttons={};w,h=monitor.getSize();monitor.setBackgroundColor(C.black);monitor.clear()
  fill(1,1,w,' ',C.white,C.blue)
- draw(2,1,'BLACKSITE / RADAR ULTRA 6.0',C.white,C.blue)
+ draw(2,1,'BLACKSITE / RADAR ULTRA 6.1',C.white,C.blue)
  draw(math.max(2,w-19),1,err=='' and 'LIVE DATA' or 'LINK OFFLINE',err=='' and C.lime or C.red,C.blue)
  local nav={'RADAR','CONTACTS','DETAILS','SECURITY','INTEL','SYSTEM'}
  local x=2
@@ -285,7 +280,7 @@ local function header()
  if w>65 then draw(w-12,5,err=='' and 'SYNC OK' or 'OFFLINE',err=='' and C.lime or C.red) end
  rule(6)
  rule(h-2)
- local foot='TOUCH targets / tabs | '..(cfg.autoCenter and 'AUTO CENTER' or 'BASE CENTER')..' | '..cfg.range..'m'
+ local foot='TOUCH targets / tabs | BASE CENTER'..' | '..cfg.range..'m'
  draw(2,h-1,cut(foot,w-2),C.lightGray)
  if alarmUntil>os.clock() then draw(2,h,cut(alarmText,w-2),C.red) elseif messageUntil>os.clock() then draw(2,h,cut(message,w-2),C.yellow) else draw(2,h,'Real radar tracks - no simulated contacts',C.gray) end
 end
@@ -336,23 +331,18 @@ local function radarPage()
   end
  end
  -- Character cells are approximately twice as tall as wide; compensate in the X axis.
- local rx=math.max(2,math.floor(radius*2*math.min(1.3,cfg.density)))
+ local rx=math.max(2,math.min(math.floor((avail-3)/2),math.floor(radius*2*math.min(1.3,cfg.density))))
  local ry=radius
  for y=top,bottom do
   for x=1,avail do
    local dx=(x-cx)/rx;local dy=(y-cy)/ry
    local r=math.sqrt(dx*dx+dy*dy)
    if r<=1.025 then
-    local ang=(math.atan2 and math.atan2(dx,-dy)) or math.atan(dx,-dy)
-    local delta=(sweep-ang)%(math.pi*2)
     local ch=' ';local fg=C.green;local bg=C.black
-    if r<1 then bg=C.black end
     if math.abs(r-1)<.035 then ch='o';fg=C.lime
     elseif math.abs(r-.75)<.028 or math.abs(r-.5)<.028 or math.abs(r-.25)<.03 then ch='.';fg=C.green
-    elseif x==cx or y==cy then ch='.';fg=C.gray
-    elseif math.abs(math.abs(dx)-math.abs(dy))<.02 then ch='.';fg=C.gray end
-    if delta<.12 and r>.05 then ch=':';fg=C.lime
-    elseif delta<.42 and r>.05 and ch==' ' then ch='.';fg=C.green end
+    elseif x==cx or y==cy then ch='.';fg=C.gray end
+    -- No sweep trail: previously the sweep painted diagonal green artifacts.
     if ch~=' ' then plot(x,y,ch,fg,bg) end
    end
   end
@@ -402,11 +392,8 @@ local function radarPage()
  draw(2,7,'[ BLACKSITE / ACTIVE SCOPE ]',C.lime)
  local function autoFit()
   local a=filtered();if #a==0 then notify('No tracks to fit');return end
-  local xs,zs={},{}
-  for _,t in ipairs(a) do xs[#xs+1]=n(t.position.x);zs[#zs+1]=n(t.position.z) end
-  table.sort(xs);table.sort(zs)
-  local k=math.ceil(#xs/2)
-  cfg.origin={x=xs[k],y=0,z=zs[k]};cfg.autoCenter=false
+  -- Fit changes zoom only, never the base location.
+  cfg.autoCenter=false
   local maxd=0
   for _,t in ipairs(a) do local x,_,z=xyz(t);maxd=math.max(maxd,math.sqrt(x*x+z*z)) end
   cfg.range=math.max(16,math.min(8192,math.ceil(maxd*1.15)))
@@ -563,7 +550,7 @@ local function systemPage()
   write('Z: ');local z=tonumber(read());if not z then notify('Origin unchanged');return end
   cfg.origin={x=x,y=y,z=z};cfg.autoCenter=false;save();notify('Radar origin saved')
  end)
- button(17,20,'AUTO CENTER',function()cfg.autoCenter=not cfg.autoCenter;save();notify('Auto center: '..tostring(cfg.autoCenter)) end)
+ button(17,20,'LOCK BASE',function()cfg.autoCenter=false;save();notify('Map locked to base coordinates') end)
  button(2,23,'RESCAN',function()discover();fetch();notify('Peripheral scan complete') end)
  button(14,23,'SCALE -0.5',function()changeScale(-.5) end)
  button(32,23,'SCALE +0.5',function()changeScale(.5) end)
